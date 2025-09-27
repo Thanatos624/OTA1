@@ -1,6 +1,6 @@
 # gui_app.py
 import tkinter as tk
-from tkinter import scrolledtext, Frame, Label, Button, ttk
+from tkinter import scrolledtext, Frame, Label, Button, ttk, filedialog
 import threading
 import queue
 import os
@@ -27,10 +27,6 @@ class OTASimulatorApp:
         self.start_stop_button = Button(control_frame, text="Start Simulation", command=self.toggle_simulation, bg="#4CAF50", fg="white", font=("Helvetica", 12, "bold"), relief="flat", padx=10)
         self.start_stop_button.pack(side="left", padx=20)
         
-        # --- New Button ---
-        self.trigger_check_button = Button(control_frame, text="Trigger TCU Check", command=self.trigger_tcu_check, bg="#FF9800", fg="white", font=("Helvetica", 10, "bold"))
-        self.trigger_check_button.pack(side="left", padx=5)
-
         self.deploy_oem_button = Button(control_frame, text="Deploy OEM Update", command=self.deploy_oem_update, bg="#2196F3", fg="white", font=("Helvetica", 10, "bold"))
         self.deploy_oem_button.pack(side="left", padx=10)
 
@@ -63,6 +59,7 @@ class OTASimulatorApp:
 
         self.root.after(100, self.process_queue)
         self.ensure_config_exists()
+        self.update_checksum_button_visuals() # <-- FIX: Synchronize button state on startup
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def create_log_frame(self, parent, title):
@@ -74,6 +71,11 @@ class OTASimulatorApp:
         label.pack(side="left")
         status_indicator = Label(title_frame, text="Stopped", font=("Helvetica", 10, "italic"), bg="gray", fg="white", padx=5, pady=2)
         status_indicator.pack(side="right")
+        
+        if "TCU" in title:
+            self.trigger_check_button = Button(title_frame, text="Request update", command=self.trigger_tcu_check, bg="#FF9800", fg="white", font=("Helvetica", 10, "bold"))
+            self.trigger_check_button.pack(side="right", padx=5)
+
         return frame, status_indicator
 
     def create_log_box(self, parent_frame):
@@ -162,9 +164,16 @@ class OTASimulatorApp:
             if os.path.exists(folder): shutil.rmtree(folder)
             os.makedirs(folder)
 
-        with open("updates/firmware_v1.0.bin", "w") as f: f.write("Baseline firmware v1.0.")
+        with open("updates/firmware_v1.1.bin", "w") as f:
+            f.write("Initial legitimate firmware v1.1.")
+        self.log_queue.put(('log', 'server', " SERVER READY: Deployed 'firmware_v1.1.bin'.", None))
 
-        self.ensure_config_exists() # Resets config to defaults
+        self.ensure_config_exists()
+        config = configparser.ConfigParser()
+        config.read('config.ini')
+        config.set('TCU', 'current_version', '1.0')
+        with open('config.ini', 'w') as configfile:
+            config.write(configfile)
         
         self.start_stop_button.config(text="Stop Simulation", bg="#f44336")
 
@@ -172,12 +181,12 @@ class OTASimulatorApp:
         for name, script_file in scripts.items():
             try:
                 process = subprocess.Popen([sys.executable, script_file],
-                    stdin=subprocess.PIPE, # Allow writing to the process's input
+                    stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE, 
                     stderr=subprocess.STDOUT, 
                     text=True, encoding='utf-8', errors='replace', bufsize=1,
                     creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
-                self.processes[name] = process # Store process by name
+                self.processes[name] = process
                 thread = threading.Thread(target=self.stream_reader, args=(process.stdout, name), daemon=True)
                 thread.start()
             except FileNotFoundError:
@@ -187,7 +196,7 @@ class OTASimulatorApp:
 
     def stop_simulation(self):
         self.simulation_running = False
-        for p in self.processes.values(): # Iterate over dictionary values
+        for p in self.processes.values():
             if p.poll() is None: p.terminate()
         self.processes.clear()
         
@@ -195,9 +204,7 @@ class OTASimulatorApp:
         for status in [self.server_status, self.malicious_server_status, self.tcu_status, self.ecu_status]:
             status.config(text="Stopped", bg="gray")
     
-    # --- New Method to Trigger the Check ---
     def trigger_tcu_check(self):
-        """Sends a 'CHECK' command to the TCU client's standard input."""
         if self.simulation_running and 'tcu' in self.processes:
             tcu_process = self.processes['tcu']
             if tcu_process.poll() is None:
@@ -213,7 +220,34 @@ class OTASimulatorApp:
             self.log_queue.put(('log', 'tcu', "Cannot trigger check. Simulation is not running.", None))
 
     def deploy_oem_update(self): self.deploy_update("oem")
-    def deploy_malicious_update(self): self.deploy_update("malicious")
+
+    def deploy_malicious_update(self):
+        if not self.simulation_running:
+            self.log_queue.put(('log', 'malicious_server', "Cannot deploy update. Simulation is not running.", None))
+            return
+
+        filepath = filedialog.askopenfilename(
+            title="Select a Malicious TXT File as a Payload",
+            filetypes=(("Text files", "*.txt"), ("All files", "*.*"))
+        )
+
+        if not filepath:
+            self.log_queue.put(('log', 'malicious_server', " MALICIOUS DEPLOY: File selection cancelled.", None))
+            return
+
+        try:
+            latest_version_tuple = find_latest_version(['updates', 'malicious_updates'])
+            major, minor = latest_version_tuple
+            new_version_str = f"{major}.{minor + 1}"
+
+            filename = f"malicious_firmware_v{new_version_str}.bin"
+            destination_path = os.path.join("malicious_updates", filename)
+
+            shutil.copy(filepath, destination_path)
+
+            self.log_queue.put(('log', 'malicious_server', f" MALICIOUS DEPLOY: Deployed custom file '{os.path.basename(filepath)}' as '{filename}'.", None))
+        except Exception as e:
+            self.log_queue.put(('log', 'malicious_server', f" MALICIOUS DEPLOY ERROR: {e}", None))
 
     def deploy_update(self, source):
         if not self.simulation_running:
@@ -234,6 +268,13 @@ class OTASimulatorApp:
         with open(os.path.join(target_folder, filename), "w") as f: f.write(content)
         self.log_queue.put(('log', log_target, f" {log_msg_prefix}: Deployed '{filename}'.", None))
 
+    def update_checksum_button_visuals(self): # <-- FIX: New method to prevent code duplication
+        """Updates the button visuals to match the self.checksum_enabled state."""
+        if self.checksum_enabled:
+            self.toggle_checksum_button.config(text="Checksum Verification: ON", bg="#4CAF50")
+        else:
+            self.toggle_checksum_button.config(text="Checksum Verification: OFF", bg="#f44336")
+
     def toggle_checksum_verification(self):
         self.checksum_enabled = not self.checksum_enabled
         config = configparser.ConfigParser()
@@ -241,12 +282,13 @@ class OTASimulatorApp:
         config.set('Security', 'checksum_verification_enabled', str(self.checksum_enabled))
         with open('config.ini', 'w') as configfile: config.write(configfile)
         
-        if self.checksum_enabled:
-            self.toggle_checksum_button.config(text="Checksum Verification: ON", bg="#4CAF50")
-            if self.simulation_running: self.log_queue.put(('log', 'tcu', "SECURITY ENABLED: Checksum verification is ON.", None))
-        else:
-            self.toggle_checksum_button.config(text="Checksum Verification: OFF", bg="#f44336")
-            if self.simulation_running: self.log_queue.put(('log', 'tcu', "SECURITY DISABLED: Checksum verification is OFF.", None))
+        self.update_checksum_button_visuals() # <-- FIX: Call the new method
+        
+        if self.simulation_running:
+            if self.checksum_enabled:
+                self.log_queue.put(('log', 'tcu', "SECURITY ENABLED: Checksum verification is ON.", None))
+            else:
+                self.log_queue.put(('log', 'tcu', "SECURITY DISABLED: Checksum verification is OFF.", None))
 
     def clear_logs(self):
         for log_box in [self.server_log, self.malicious_server_log, self.tcu_log, self.ecu_log]:
@@ -260,3 +302,4 @@ if __name__ == '__main__':
     root = tk.Tk()
     app = OTASimulatorApp(root)
     root.mainloop()
+

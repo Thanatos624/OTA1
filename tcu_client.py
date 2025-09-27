@@ -145,7 +145,7 @@ def perform_single_update_check():
             else:
                 log_to_gui('status', 'Failed', '#f44336')
         else:
-            log_to_gui('log', " No new updates found.")
+            log_to_gui('log', f" Current version v{current_version_str} is up to date.")
             log_to_gui('status', 'Idle', 'gray')
     
     except Exception as e:
