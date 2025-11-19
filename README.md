@@ -4,6 +4,8 @@
 [![License](https://img.shields.io/badge/License-Educational-green)](#license--attribution)
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen)]()
 
+> 🚧 **Under active development** — This project is a work-in-progress. Features, UI and CLI may change; issues and PRs are welcome.
+
 > A comprehensive simulator demonstrating Over-The-Air (OTA) firmware update flows, security vulnerabilities, and mitigation strategies for embedded vehicle systems.
 
 ---
