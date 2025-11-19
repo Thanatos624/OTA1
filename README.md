@@ -60,17 +60,17 @@ Perfect for **security researchers, embedded systems students, and automotive en
                           
 ```
 
-**Key Point**: The TCU chooses the **highest version** without verifying the source — allowing a malicious server to inject v1.3 while the legitimate server only has v1.2.
+**Key Point**: The TCU chooses the **highest version** without verifying the source ï¿½ allowing a malicious server to inject v1.3 while the legitimate server only has v1.2.
 
 ---
 
 ##  Security Highlights
 
 This simulator is an **educational demo tool** showcasing real OTA vulnerabilities:
--  **No digital signatures** — easy to spoof checksums
--  **No server authentication** — any server can claim to be OEM
--  **Version-only selection** — highest version wins, regardless of source
--  **Checksum verification** (optional) — can be toggled ON/OFF to test impact
+-  **No digital signatures** ï¿½ easy to spoof checksums
+-  **No server authentication** ï¿½ any server can claim to be OEM
+-  **Version-only selection** ï¿½ highest version wins, regardless of source
+-  **Checksum verification** (optional) ï¿½ can be toggled ON/OFF to test impact
 
 **Learn how to fix these issues:**
 - Implement RSA/ECDSA digital signature verification
@@ -191,9 +191,9 @@ tcu_ack_folder = tcu_acks
 ##  Known Limitations & Future Improvements
 
 ### Current Limitations
--  No real cryptographic signatures — only SHA256 hashes
--  No TLS/HTTPS — all traffic unencrypted
--  No persistent update history — logs cleared on restart
+-  No real cryptographic signatures ï¿½ only SHA256 hashes
+-  No TLS/HTTPS ï¿½ all traffic unencrypted
+-  No persistent update history ï¿½ logs cleared on restart
 -  TCU logic is simplistic (always picks highest version)
 
 ### Recommended Enhancements
@@ -221,7 +221,7 @@ tcu_ack_folder = tcu_acks
 
 This repository is provided for **educational and demonstration purposes only**.
 
-**No formal license is included.** Consult the project owner ([Thanatos624](https://github.com/Thanatos624)) for licensing inquiries.
+**No formal license is included.** Consult the project owner ([Thanatos624](https://github.com/Thanatos624)) ([shoob-cyber](https://github.com/shoob-cyber)) for licensing inquiries.
 
 ---
 
