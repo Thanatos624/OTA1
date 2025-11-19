@@ -25,8 +25,6 @@ Perfect for **security researchers, embedded systems students, and automotive en
 
 ![WhatsApp Image 2025-11-19 at 19 58 32_cae1bf8c](https://github.com/user-attachments/assets/13823d94-96ec-4c68-aa5b-b9cf65ce41e6)
 ![WhatsApp Image 2025-11-19 at 19 58 34_64e42985](https://github.com/user-attachments/assets/a64cf22f-c559-4d3d-b154-14ed6b4e9d9c)
-![WhatsApp Image 2025-11-19 at 19 58 33_ea732d14](https://github.com/user-attachments/assets/614b3840-26e9-4acf-baa4-22e63a983838)
-![WhatsApp Image 2025-11-19 at 19 58 33_b5c67019](https://github.com/user-attachments/assets/74320f5f-2042-49e8-81f3-6972c4d7930e)
 ![WhatsApp Image 2025-11-19 at 19 58 33_769747ec](https://github.com/user-attachments/assets/bae970f3-317a-457b-bbb9-4110913d792a)
 ![WhatsApp Image 2025-11-19 at 19 58 33_81ede256](https://github.com/user-attachments/assets/14e2a2b6-ad2e-4dae-a19c-a5c4e5c08c2b)
 ![WhatsApp Image 2025-11-19 at 19 58 33_4929bb4d](https://github.com/user-attachments/assets/4b38408a-849d-4216-9733-7d90cd42d9d6)
