@@ -34,33 +34,57 @@ Perfect for **security researchers, embedded systems students, and automotive en
 
 ---
 
-##  Architecture & Data Flow
+## Architecture & Data Flow
+
+This section describes how the simulator's components interact and the exact sequence of events during an OTA update cycle.
+
+High-level architecture:
 
 ```
-                  
- GUI Control   OEM Server                Malicious    
- (Tkinter)              (Port 5000)               Server       
-                   (Port 5001)  
-                                                    
-                                                           
-                         
-                              TCU Client (Vulnerable)              
-                           - Queries both servers for updates      
-                           - Selects highest version (VULNERABLE!) 
-                           - Downloads firmware                    
-                           - Optionally verifies checksum          
-        - Transfers to ECU folder               
-                          
-                                                       
-                          
-                               ECU Receiver                           
-                            - Listens for firmware files             
-                            - Applies updates                        
-                            - Writes acknowledgements back to TCU    
-                          
+[OEM Server:5000]        [Malicious Server:5001]
+        \                      /
+         \                    /
+          \                  /
+           --> [TCU Client] --> [Shared folder -> ECU Receiver]
+                          |
+                          v
+                    [ECU Receiver]
+                          |
+                          v
+                     [TCU ACK Folder]
 ```
 
-**Key Point**: The TCU chooses the **highest version** without verifying the source � allowing a malicious server to inject v1.3 while the legitimate server only has v1.2.
+Sequence (detailed data flow):
+
+1. OEM / Malicious servers host files in `updates/` and `malicious_updates/` respectively and expose two endpoints:
+   - `GET /check-update` — returns metadata: `{version, filename, checksum, source}`
+   - `GET /download/<filename>` — serves the binary/content
+
+2. The TCU Client polls both servers (OEM & Malicious) by calling `/check-update` on each.
+
+3. Each server responds with the latest available metadata (version string, filename, checksum).
+
+4. The TCU chooses the candidate with the highest semantic version (major.minor). In this simulator the TCU is intentionally simplistic and selects purely by version number.
+
+5. If a candidate update is chosen, the TCU downloads it from the corresponding `/download/<filename>` endpoint to `tcu_downloads/`.
+
+6. TCU computes the SHA256 checksum locally and compares it to the server-provided checksum if `checksum_verification_enabled` is true in `config.ini`.
+   - If checksums match (or verification is disabled), TCU moves the firmware file to the `ecu_shared_folder`.
+   - If checksums do not match and verification is enabled, the file is deleted and the update is aborted.
+
+7. The ECU Receiver monitors the `ecu_shared_folder`. When it detects a firmware file, it simulates applying the update, removes the firmware file, and writes an `.ack` file into `tcu_ack_folder` to signal success.
+
+8. The TCU watches the ack folder; upon receiving the ack it updates `config.ini` to the new version and reports success in the GUI logs.
+
+Vulnerabilities demonstrated by this flow:
+- Version-only selection: a malicious server can publish a higher version number to outrank OEM.
+- Fake checksums (malicious server) or disabled checksum verification allow malicious payloads to be accepted.
+- No server authentication or digital signatures — checksum alone is insufficient for authenticity.
+
+Suggested mitigations:
+- Use cryptographic signatures (signed metadata + signed firmware blobs) and validate signatures against a trusted public key.
+- Enforce server authentication (TLS + certificate pinning) and restrict allowed update sources.
+- Add policy checks (allowed signers, rollback protection, version constraints) before applying updates.
 
 ---
 
